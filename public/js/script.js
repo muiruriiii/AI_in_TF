@@ -60,6 +60,8 @@ hideLoaders();
       createVisualization(searches);
       displayFormattedResults(data);
     } catch (error) {
+      console.log("error here");
+      console.log(error);
       hideLoaders();
       console.error('Error fetching search results:', error);
       resultContainer.innerHTML = `<p>Error: ${error.message}</p>`;
