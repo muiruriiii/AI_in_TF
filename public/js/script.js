@@ -7,7 +7,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchHistoryList = document.querySelector('#search-history-list');
   const clearHistoryBtn = document.querySelector('#clear-history-btn');
   const clearVisualizationBtn = document.querySelector('#clear-visualization-btn');
+  const loaders = document.querySelectorAll('.loader-container');
+ // Function to hide all loaders
+function hideLoaders() {
+  loaders.forEach(loader => {
+      loader.style.display = 'none';
+  });
+}
 
+// Function to show all loaders
+function showLoaders() {
+  loaders.forEach(loader => {
+      loader.style.display = 'flex';
+  });
+}
+
+hideLoaders();
   let searches = [];
 
   clearHistoryBtn.addEventListener('click', () => {
@@ -34,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function performSearch(searchTerm) {
+    showLoaders();
     if (searchTerm === '') return;
 
     addSearchToHistory(searchTerm);
@@ -44,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
       createVisualization(searches);
       displayFormattedResults(data);
     } catch (error) {
+      hideLoaders();
       console.error('Error fetching search results:', error);
       resultContainer.innerHTML = `<p>Error: ${error.message}</p>`;
     }
@@ -109,6 +126,9 @@ document.addEventListener('DOMContentLoaded', () => {
     d3.select('#sub-diagram1 svg').remove();
     d3.select('#sub-diagram2 svg').remove();
 
+    //Set the visualizations
+    hideLoaders();
+    console.log("loaders hidden")
     createSubDiagram1(allSearches[allSearches.length - 1]); 
     createSubDiagram2(allSearches); 
   }
