@@ -109,7 +109,7 @@ hideLoaders();
   }
 
   async function fetchSearchResults(searchTerm) {
-    const response = await fetch('https://ai-in-terror-financing.vercel.app/search', {
+    const response = await fetch('https://ai-in-terror-financing.vercel.app', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ term: searchTerm })
