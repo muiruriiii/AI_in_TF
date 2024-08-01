@@ -3,6 +3,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const fs = require('fs');
+const axios =require("axios")
 
 const app = express();
 const PORT = 5500;
@@ -19,7 +20,7 @@ app.get('/js/script.js', (req, res) => {
 });
 
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/AI_in_tf', {
+mongoose.connect('mongodb+srv://muiruricynthiaaa:Y9Wh0wgDWJVRMr7g@tfc.ifktyna.mongodb.net/AI_in_TF', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(async () => {
@@ -29,18 +30,7 @@ mongoose.connect('mongodb://localhost:27017/AI_in_tf', {
   console.error('MongoDB connection error:', err);
 });
 
-// Test connection function
-const testConnection = async () => {
-  try {
-    const collections = ['Bank_information', 'Twitter_data', 'Sanctioned_list', 'Call_records', 'Facebook_data', 'Immigration', 'Import_Export_data'];
-    for (const collection of collections) {
-      const count = await mongoose.connection.db.collection(collection).countDocuments();
-      console.log(`Number of documents in ${collection}: ${count}`);
-    }
-  } catch (error) {
-    console.error('Error testing database connection:', error);
-  }
-};
+
 
 // Define MongoDB schemas
 const twitterSchema = new mongoose.Schema({
@@ -132,6 +122,24 @@ const Bank = mongoose.model('Bank', bankSchema);
 const Call = mongoose.model('Call', callSchema);
 const Facebook = mongoose.model('Facebook', facebookSchema);
 const importExport = mongoose.model('importExport', importExportSchema);
+
+
+
+// Test connection function
+const testConnection = async () => {
+  try {
+
+    const collections = ['Bank_information', 'Twitter_data', 'Sanctioned_list', 'Call_records', 'Facebook_data', 'Immigration', 'Import_Export_data'];
+    for (const collection of collections) {
+      const count = await mongoose.connection.db.collection(collection).countDocuments();
+      console.log(`Number of documents in ${collection}: ${count}`);
+    }
+
+  } catch (error) {
+    console.error('Error testing database connection:', error);
+  }
+};
+
 
 // D3.js library visualization
 app.get('/js/d3.v7.min.js', (req, res) => {
