@@ -195,25 +195,25 @@ function getSearchMemory() {
     return i === input.length;
   }
   
-  function updateAutocompleteSuggestions(input) {
-    const searchMemory = getSearchMemory();
-    const matchingTerms = searchMemory.filter(term => fuzzyMatch(input, term));
-    
-    const autocompleteContainer = document.querySelector('#autocomplete-container');
-    autocompleteContainer.innerHTML = '';
+function updateAutocompleteSuggestions(input) {
+  const searchMemory = getSearchMemory();
+  const matchingTerms = searchMemory.filter(term => fuzzyMatch(input, term));
   
-    matchingTerms.forEach(term => {
-      const suggestion = document.createElement('div');
-      suggestion.classList.add('autocomplete-suggestion');
-      suggestion.textContent = term;
-      suggestion.addEventListener('click', () => {
-        searchInput.value = term;
-        autocompleteContainer.innerHTML = '';
-        performSearch(term);
-      });
-      autocompleteContainer.appendChild(suggestion);
+  const autocompleteContainer = document.querySelector('#autocomplete-container');
+  autocompleteContainer.innerHTML = '';
+
+  matchingTerms.forEach(term => {
+    const suggestion = document.createElement('div');
+    suggestion.classList.add('autocomplete-suggestion');
+    suggestion.textContent = term;
+    suggestion.addEventListener('click', () => {
+      searchInput.value = term;
+      autocompleteContainer.innerHTML = '';
+      performSearch(term);
     });
-  }
+    autocompleteContainer.appendChild(suggestion);
+  });
+}
 
   async function performSearch(searchTerm) {
     showLoaders();
@@ -703,7 +703,6 @@ function getSearchMemory() {
         return `Account Number: ${initialRecord.account_number}`;
       case 'SenderID':
         return `Sender ID: ${initialRecord.SenderID}`;
-        
       default:
         return 'Search Term';
     }
@@ -750,19 +749,338 @@ function getSearchMemory() {
     return html;
   }
 
+  function createCallDurationHistogram(callRecords) {
+    const subResult2 = document.querySelector('#sub-result2');
+    
+    // Create SVG
+    const margin = {top: 20, right: 20, bottom: 30, left: 40};
+    const width = subResult2.clientWidth - margin.left - margin.right;
+    const height = 300 - margin.top - margin.bottom;
+  
+    const svg = d3.select('#sub-result2')
+      .append('svg')
+      .attr('width', width + margin.left + margin.right)
+      .attr('height', height + margin.top + margin.bottom)
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+  
+    // Process data
+    const durations = callRecords.map(record => parseInt(record.CallDuration));
+    const binCount = 10;
+    const bins = d3.histogram()
+      .domain(d3.extent(durations))
+      .thresholds(binCount)
+      (durations);
+  
+    // Set up scales
+    const x = d3.scaleLinear()
+      .domain([bins[0].x0, bins[bins.length - 1].x1])
+      .range([0, width]);
+  
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(bins, d => d.length)])
+      .range([height, 0]);
+  
+    // Create bars
+    svg.selectAll('rect')
+      .data(bins)
+      .enter()
+      .append('rect')
+      .attr('x', d => x(d.x0) + 1)
+      .attr('width', d => Math.max(0, x(d.x1) - x(d.x0) - 1))
+      .attr('y', d => y(d.length))
+      .attr('height', d => height - y(d.length))
+      .attr('fill', 'steelblue');
+  
+    // Add x-axis
+    svg.append('g')
+      .attr('transform', `translate(0,${height})`)
+      .call(d3.axisBottom(x));
+  
+    // Add y-axis
+    svg.append('g')
+      .call(d3.axisLeft(y));
+  
+    // Add labels
+    svg.append('text')
+      .attr('x', width / 2)
+      .attr('y', height + margin.bottom)
+      .attr('text-anchor', 'middle')
+      .text('Call Duration (seconds)');
+  
+    svg.append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -height / 2)
+      .attr('y', -margin.left)
+      .attr('dy', '1em')
+      .attr('text-anchor', 'middle')
+      .text('Frequency');
+  
+    // Add title
+    svg.append('text')
+      .attr('x', width / 2)
+      .attr('y', 0 - (margin.top / 2))
+      .attr('text-anchor', 'middle')
+      .style('font-size', '16px')
+      .text('Call Duration Histogram');
+  }
+  function createCallBarChart(callRecords) {
+    const subResult2 = document.querySelector('#sub-result2');
+    
+    // Create SVG
+    const margin = {top: 20, right: 20, bottom: 70, left: 60};
+    const width = subResult2.clientWidth - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+  
+    const svg = d3.select('#sub-result2')
+      .append('svg')
+      .attr('width', width + margin.left + margin.right)
+      .attr('height', height + margin.top + margin.bottom)
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+  
+    // Process data
+    const data = callRecords.map(record => ({
+      CallerID: record.CallerName,
+      CallDuration: parseInt(record.CallDuration),
+      ReceiverID: record.ReceiverName
+    }));
+  
+    // Set up scales
+    const x = d3.scaleBand()
+      .range([0, width])
+      .domain(data.map(d => d.CallerID))
+      .padding(0.1);
+  
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d.CallDuration)])
+      .range([height, 0]);
+  
+    // Create bars
+    svg.selectAll('.bar')
+      .data(data)
+      .enter()
+      .append('rect')
+      .attr('class', 'bar')
+      .attr('x', d => x(d.CallerID))
+      .attr('width', x.bandwidth())
+      .attr('y', d => y(d.CallDuration))
+      .attr('height', d => height - y(d.CallDuration))
+      .attr('fill', '#D04A02');
+  
+    // Add x-axis
+    svg.append('g')
+      .attr('transform', `translate(0,${height})`)
+      .call(d3.axisBottom(x))
+      .selectAll('text')
+      .attr('transform', 'rotate(-45)')
+      .style('text-anchor', 'end');
+  
+    // Add y-axis
+    svg.append('g')
+      .call(d3.axisLeft(y));
+  
+    // Add labels
+    svg.append('text')
+      .attr('x', width / 2)
+      .attr('y', height + margin.bottom - 10)
+      .attr('text-anchor', 'middle')
+      .text('Caller Name');
+  
+    svg.append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -height / 2)
+      .attr('y', -margin.left + 20)
+      .attr('text-anchor', 'middle')
+      .text('Call Duration (seconds)');
+  
+    // Add title
+    svg.append('text')
+      .attr('x', width / 2)
+      .attr('y', 0 - (margin.top / 2))
+      .attr('text-anchor', 'middle')
+      .style('font-size', '16px');
+      
+  
+    // Add hover effect
+    const tooltip = d3.select('#sub-result2')
+      .append('div')
+      .attr('class', 'tooltip')
+      .style('opacity', 0)
+      .style('position', 'absolute')
+      .style('background-color', 'white')
+      .style('border', 'solid')
+      .style('border-width', '1px')
+      .style('border-radius', '5px')
+      .style('padding', '10px');
+  
+    svg.selectAll('.bar')
+      .on('mouseover', function(event, d) {
+        tooltip.transition()
+          .duration(200)
+          .style('opacity', .9);
+          tooltip.html(`
+            <strong>Receiver Name:</strong> ${d.ReceiverID}<br>
+            <strong>Call Duration:</strong> ${d.CallDuration} seconds
+          `)
+          .style('left', (event.pageX) + 'px')
+          .style('top', (event.pageY - 28) + 'px');
+      })
+      .on('mouseout', function(d) {
+        tooltip.transition()
+          .duration(500)
+          .style('opacity', 0);
+      });
+  }
+
+  function createTwitterBarChart(twitterData) {
+    const subResult2 = document.querySelector('#sub-result2');
+    
+    // Create SVG
+    const margin = {top: 20, right: 20, bottom: 100, left: 100};
+    const width = subResult2.clientWidth - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+  
+    const svg = d3.select('#sub-result2')
+      .append('svg')
+      .attr('width', width + margin.left + margin.right)
+      .attr('height', height + margin.top + margin.bottom)
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+  
+    // Process data
+    const data = twitterData.map(record => ({
+      UserName: record.UserName,
+      Timestamp: new Date(record.Timestamp),
+      Tweet: Array.isArray(record.Tweet) ? record.Tweet.join(', ') : record.Tweet
+    })).sort((a, b) => a.Timestamp - b.Timestamp);
+  
+    // Set up scales
+    const x = d3.scaleBand()
+      .range([0, width])
+      .domain(data.map(d => d.UserName))
+      .padding(0.1);
+  
+    const y = d3.scaleTime()
+      .range([height, 0])
+      .domain(d3.extent(data, d => d.Timestamp));
+  
+    // Create bars
+    svg.selectAll('.bar')
+      .data(data)
+      .enter()
+      .append('rect')
+      .attr('class', 'bar')
+      .attr('x', d => x(d.UserName))
+      .attr('y', d => y(d.Timestamp))
+      .attr('width', x.bandwidth())
+      .attr('height', d => height - y(d.Timestamp))
+      .attr('fill', 'steelblue');
+  
+    // Add x-axis
+    svg.append('g')
+      .attr('transform', `translate(0,${height})`)
+      .call(d3.axisBottom(x))
+      .selectAll('text')
+      .attr('transform', 'rotate(-45)')
+      .style('text-anchor', 'end');
+  
+    // Add y-axis
+    svg.append('g')
+      .call(d3.axisLeft(y));
+  
+    // Add labels
+    svg.append('text')
+      .attr('x', width / 2)
+      .attr('y', height + margin.bottom - 20)
+      .attr('text-anchor', 'middle')
+      .text('Username');
+  
+    svg.append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -height / 2)
+      .attr('y', -margin.left + 20)
+      .attr('text-anchor', 'middle')
+      .text('Timestamp');
+  
+    // Add title
+    svg.append('text')
+      .attr('x', width / 2)
+      .attr('y', 0 - (margin.top / 2))
+      .attr('text-anchor', 'middle')
+      .style('font-size', '16px')
+      .text('Twitter Activity by User');
+  
+    // Add hover effect
+    const tooltip = d3.select('#sub-result2')
+      .append('div')
+      .attr('class', 'tooltip')
+      .style('opacity', 0)
+      .style('position', 'absolute')
+      .style('background-color', 'white')
+      .style('border', 'solid')
+      .style('border-width', '1px')
+      .style('border-radius', '5px')
+      .style('padding', '10px');
+  
+    svg.selectAll('.bar')
+      .on('mouseover', function(event, d) {
+        tooltip.transition()
+          .duration(200)
+          .style('opacity', .9);
+        tooltip.html(`
+          <strong>Username:</strong> ${d.UserName}<br>
+          <strong>Timestamp:</strong> ${d.Timestamp.toLocaleString()}<br>
+          <strong>Tweet:</strong> ${d.Tweet}
+        `)
+          .style('left', (event.pageX) + 'px')
+          .style('top', (event.pageY - 28) + 'px');
+      })
+      .on('mouseout', function(d) {
+        tooltip.transition()
+          .duration(500)
+          .style('opacity', 0);
+      });
+  }
+
   function showDetailedInfo(node) {
-    let detailedInfo = '';
-    if (node.id === 'initial' || node.id.startsWith('initial-')) {
-      detailedInfo = formatInitialRecord(node.data);
-    } else if (Array.isArray(node.data)) {
-      detailedInfo = formatMultipleRecords(node.id, node.data);
+    const subResult1 = document.querySelector('#sub-result1');
+    const subResult2 = document.querySelector('#sub-result2');
+    
+    subResult1.innerHTML = '';
+    subResult2.innerHTML = '';
+  
+    if (node.id === 'call') {
+      if (Array.isArray(node.data)) {
+        const detailedInfo = formatMultipleRecords(node.id, node.data);
+        const detailContainer = document.createElement('div');
+        detailContainer.innerHTML = `<h3>${node.label} Details</h3>${detailedInfo}`;
+        subResult1.appendChild(detailContainer);
+  
+        createCallBarChart(node.data);
+      }
+    } else if (node.id === 'twitter') {
+      if (Array.isArray(node.data)) {
+        const detailedInfo = formatMultipleRecords(node.id, node.data);
+        const detailContainer = document.createElement('div');
+        detailContainer.innerHTML = `<h3>${node.label} Details</h3>${detailedInfo}`;
+        subResult1.appendChild(detailContainer);
+  
+        createTwitterBarChart(node.data);
+      }
     } else {
-      detailedInfo = formatSingleRecord(node.id, node.data);
+      let detailedInfo = '';
+      if (node.id === 'initial' || node.id.startsWith('initial-')) {
+        detailedInfo = formatInitialRecord(node.data);
+      } else if (Array.isArray(node.data)) {
+        detailedInfo = formatMultipleRecords(node.id, node.data);
+      } else {
+        detailedInfo = formatSingleRecord(node.id, node.data);
+      }
+      const detailContainer = document.createElement('div');
+      detailContainer.innerHTML = `<h3>${node.label} Details</h3>${detailedInfo}`;
+      subResult1.appendChild(detailContainer);
     }
-    const detailContainer = document.createElement('div');
-    detailContainer.innerHTML = `<h3>${node.label} Details</h3>${detailedInfo}`;
-    resultContainer.innerHTML = '';
-    resultContainer.appendChild(detailContainer);
   }
 
   function formatMultipleRecords(nodeId, records) {
