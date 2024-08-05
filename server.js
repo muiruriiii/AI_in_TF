@@ -21,7 +21,7 @@ app.get('/js/script.js', (req, res) => {
 
 // MongoDB connection
 mongoose.connect('mongodb+srv://muiruricynthiaaa:Y9Wh0wgDWJVRMr7g@tfc.ifktyna.mongodb.net/AI_in_TF', {
-  
+//mongoose.connect('mongodb://localhost:27017/AI_in_tf', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(async () => {
