@@ -324,7 +324,7 @@ function updateAutocompleteSuggestions(input) {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch search results');
+      throw new Error('Failed to fetch search results.');
     }
 
     return response.json();
