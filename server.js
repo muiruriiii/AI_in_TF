@@ -20,7 +20,8 @@ app.get('/js/script.js', (req, res) => {
 });
 
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/AI_in_tf', {
+mongoose.connect('mongodb+srv://muiruricynthiaaa:Y9Wh0wgDWJVRMr7g@tfc.ifktyna.mongodb.net/AI_in_TF', {
+  
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(async () => {
@@ -152,7 +153,6 @@ app.get('/js/d3.v7.min.js', (req, res) => {
     }
   });
 });
-
 
 
 app.post('/search', async (req, res) => {

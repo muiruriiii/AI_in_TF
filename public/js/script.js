@@ -246,7 +246,7 @@ function updateAutocompleteSuggestions(input) {
       searches.pop();
     }
     localStorage.setItem('searchHistory', JSON.stringify(searches));
-    addToSearchMemory(searchTerm); // Add to search memory as well
+    addToSearchMemory(searchTerm); 
     renderSearchHistory();
   }
 
