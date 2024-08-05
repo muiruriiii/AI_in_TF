@@ -8,6 +8,65 @@ document.addEventListener('DOMContentLoaded', () => {
   const clearHistoryBtn = document.querySelector('#clear-history-btn');
   const clearVisualizationBtn = document.querySelector('#clear-visualization-btn');
   const loaders = document.querySelectorAll('.loader-container');
+  const autocompleteContainer = document.createElement('div');
+  autocompleteContainer.id = 'autocomplete-container';
+  searchInput.parentNode.insertBefore(autocompleteContainer, searchInput.nextSibling);
+
+
+  searchInput.addEventListener('input', () => {
+    const inputValue = searchInput.value.trim();
+    if (inputValue === '') {
+      clearResults();
+      autocompleteContainer.innerHTML = '';
+    } else {
+      updateAutocompleteSuggestions(inputValue);
+    }
+  });
+
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const firstSuggestion = autocompleteContainer.querySelector('.autocomplete-suggestion');
+      if (firstSuggestion) {
+        searchInput.value = firstSuggestion.textContent;
+        autocompleteContainer.innerHTML = '';
+      }
+      performSearch(searchInput.value.trim());
+    }
+  });
+
+  const style = document.createElement('style');
+style.textContent = `
+  #autocomplete-container {
+    position: absolute;
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-top: none;
+    z-index: 1000;
+  }
+  .autocomplete-suggestion {
+    padding: 10px;
+    cursor: pointer;
+  }
+  .autocomplete-suggestion:hover {
+    background-color: #f0f0f0;
+  }
+`;
+document.head.appendChild(style);
+
+function addToSearchMemory(searchTerm) {
+  let searchMemory = JSON.parse(localStorage.getItem('searchMemory')) || [];
+  if (!searchMemory.includes(searchTerm)) {
+    searchMemory.unshift(searchTerm);
+    localStorage.setItem('searchMemory', JSON.stringify(searchMemory));
+  }
+}
+
+function getSearchMemory() {
+  return JSON.parse(localStorage.getItem('searchMemory')) || [];
+}
 
   const fieldDisplayNames = {
     bank: {
@@ -122,7 +181,39 @@ document.addEventListener('DOMContentLoaded', () => {
     d3.select('#sub-diagram2 svg').remove();
   }
 
-
+  function fuzzyMatch(input, target) {
+    input = input.toLowerCase();
+    target = target.toLowerCase();
+    let i = 0;
+    let j = 0;
+    while (i < input.length && j < target.length) {
+      if (input[i] === target[j]) {
+        i++;
+      }
+      j++;
+    }
+    return i === input.length;
+  }
+  
+  function updateAutocompleteSuggestions(input) {
+    const searchMemory = getSearchMemory();
+    const matchingTerms = searchMemory.filter(term => fuzzyMatch(input, term));
+    
+    const autocompleteContainer = document.querySelector('#autocomplete-container');
+    autocompleteContainer.innerHTML = '';
+  
+    matchingTerms.forEach(term => {
+      const suggestion = document.createElement('div');
+      suggestion.classList.add('autocomplete-suggestion');
+      suggestion.textContent = term;
+      suggestion.addEventListener('click', () => {
+        searchInput.value = term;
+        autocompleteContainer.innerHTML = '';
+        performSearch(term);
+      });
+      autocompleteContainer.appendChild(suggestion);
+    });
+  }
 
   async function performSearch(searchTerm) {
     showLoaders();
@@ -130,10 +221,10 @@ document.addEventListener('DOMContentLoaded', () => {
   
     currentSearchTerm = searchTerm;
   
-    // Remove the search term from deletedNodes if it exists
     deletedNodes = deletedNodes.filter(term => term !== searchTerm);
   
     addSearchToHistory(searchTerm);
+    addToSearchMemory(searchTerm);
   
     try {
       const data = await fetchSearchResults(searchTerm);
@@ -149,11 +240,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function addSearchToHistory(searchTerm) {
     let searches = JSON.parse(localStorage.getItem('searchHistory')) || [];
+    searches = searches.filter(term => term !== searchTerm);
     searches.unshift(searchTerm);
     if (searches.length > 10) {
       searches.pop();
     }
     localStorage.setItem('searchHistory', JSON.stringify(searches));
+    addToSearchMemory(searchTerm); // Add to search memory as well
     renderSearchHistory();
   }
 
@@ -348,7 +441,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showDetailedInfo(d);
       });
  
-      // Add hover effects
       node.on('mouseover', function(event, d) {
         d3.select(this).transition()
           .duration(300)
@@ -431,7 +523,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const sourceLabel = getInitialLabel(allSearches[i].searchType, allSearches[i].initialRecord);
         const targetLabel = getInitialLabel(allSearches[j].searchType, allSearches[j].initialRecord);
   
-        // Only create links if neither node is in the deletedNodes list or if one of them is the current search
         if ((!deletedNodes.includes(sourceLabel) && !deletedNodes.includes(targetLabel)) ||
             sourceLabel.includes(currentSearchTerm) || targetLabel.includes(currentSearchTerm)) {
           if (haveCommonData(allSearches[i], allSearches[j])) {
@@ -612,6 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `Account Number: ${initialRecord.account_number}`;
       case 'SenderID':
         return `Sender ID: ${initialRecord.SenderID}`;
+        
       default:
         return 'Search Term';
     }
