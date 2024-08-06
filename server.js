@@ -195,6 +195,14 @@ app.post('/search', async (req, res) => {
                         await Facebook.findOne({ phoneNumber: searchTerm }) ||
                         await importExport.findOne({ Contact_phone_number: searchTerm });
         break;
+      case 'name':
+        initialRecord = await Bank.findOne({ 
+          $or: [
+            { first_name: { $regex: new RegExp(searchTerm, 'i') } },
+            { last_name: { $regex: new RegExp(searchTerm, 'i') } }
+          ]
+        }) || await Sanctioned.findOne({ name: { $regex: new RegExp(searchTerm, 'i') } });
+        break;
       default:
         res.status(400).json({ error: 'Invalid search term' });
         return;
@@ -207,7 +215,9 @@ app.post('/search', async (req, res) => {
           { phoneNumber: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID || initialRecord.Contact_phone_number },
           { email: initialRecord.email },
           { account_number: initialRecord.account_number },
-          { SenderID: initialRecord.SenderID }
+          { SenderID: initialRecord.SenderID },
+          { first_name: initialRecord.first_name },
+          { last_name: initialRecord.last_name }
         ]
       };
 
@@ -256,7 +266,7 @@ app.post('/search', async (req, res) => {
       // Search in Import and Export data
       matchedImportExportData = await importExport.find({
         $or: [
-          { Contact_phone_number: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID },
+          { Contact_phone_number: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID }
         ]
       });
     }
@@ -314,6 +324,16 @@ async function determineSearchType(searchTerm) {
       await importExport.exists({ Contact_phone_number: searchTerm }) ||
       await Immigration.exists({ phoneNumber: searchTerm })) {
     return 'phone';
+  }
+ 
+  if (await Bank.exists({ 
+    $or: [
+      { Name: { $regex: new RegExp(searchTerm, 'i') } },
+      { first_name: { $regex: new RegExp(searchTerm, 'i') } },
+      { last_name: { $regex: new RegExp(searchTerm, 'i') } }
+    ]
+  }) || await Sanctioned.exists({ name: { $regex: new RegExp(searchTerm, 'i') } })) {
+    return 'name';
   }
   return 'other';
 }

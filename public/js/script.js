@@ -1043,6 +1043,69 @@ function updateAutocompleteSuggestions(input) {
       });
   }
 
+  function generateSummary(nodeId, data) {
+    let summary = '';
+    switch (nodeId) {
+      case 'call':
+        const totalCalls = data.length;
+        const totalDuration = data.reduce((sum, record) => sum + parseInt(record.CallDuration), 0);
+        const avgDuration = (totalDuration / totalCalls).toFixed(2);
+        summary = `There are ${totalCalls} call records in total. The average call duration is ${avgDuration} seconds. `;
+        if (totalCalls > 1) {
+          const uniqueCallers = new Set(data.map(record => record.CallerName)).size;
+          const uniqueReceivers = new Set(data.map(record => record.ReceiverName)).size;
+          summary += `These calls involve ${uniqueCallers} unique callers and ${uniqueReceivers} unique receivers.`;
+        }
+        break;
+      case 'twitter':
+        const totalTweets = data.length;
+        const uniqueUsers = new Set(data.map(record => record.UserName)).size;
+        summary = `There are ${totalTweets} tweets from ${uniqueUsers} unique users. `;
+        if (totalTweets > 1) {
+          const earliestTweet = new Date(Math.min(...data.map(record => new Date(record.Timestamp))));
+          const latestTweet = new Date(Math.max(...data.map(record => new Date(record.Timestamp))));
+          summary += `The tweets span from ${earliestTweet.toLocaleDateString()} to ${latestTweet.toLocaleDateString()}.`;
+        }
+        break;
+      case 'bank':
+        const totalAccounts = data.length;
+        summary = `There are ${totalAccounts} bank records. `;
+        if (totalAccounts > 1) {
+          const uniqueNames = new Set(data.map(record => `${record.first_name} ${record.last_name}`)).size;
+          summary += `These records represent ${uniqueNames} unique individuals.`;
+        }
+        break;
+      case 'sanctioned':
+        const totalSanctioned = data.length;
+        summary = `There are ${totalSanctioned} sanctioned records. `;
+        if (totalSanctioned > 1) {
+          const uniqueCountries = new Set(data.map(record => record.country_of_origin)).size;
+          summary += `These records involve entities from ${uniqueCountries} different countries.`;
+        }
+        break;
+      case 'facebook':
+        const totalPosts = data.length;
+        summary = `There are ${totalPosts} Facebook records. `;
+        if (totalPosts > 1) {
+          const uniqueUsers = new Set(data.map(record => record.Username)).size;
+          summary += `These records are from ${uniqueUsers} unique Facebook users.`;
+        }
+        break;
+      case 'immigration':
+        const totalRecords = data.length;
+        summary = `There are ${totalRecords} immigration records. `;
+        if (totalRecords > 1) {
+          const uniqueDepartures = new Set(data.map(record => record.Departure_Country)).size;
+          const uniqueArrivals = new Set(data.map(record => record.Arrival_Country)).size;
+          summary += `These records involve travel between ${uniqueDepartures} departure countries and ${uniqueArrivals} arrival countries.`;
+        }
+        break;
+      default:
+        summary = `There are ${data.length} records in this category.`;
+    }
+    return summary;
+  }
+
   function showDetailedInfo(node) {
     const subResult1 = document.querySelector('#sub-result1');
     const subResult2 = document.querySelector('#sub-result2');
@@ -1050,43 +1113,84 @@ function updateAutocompleteSuggestions(input) {
     subResult1.innerHTML = '';
     subResult2.innerHTML = '';
   
-    if (node.id === 'call') {
-      if (Array.isArray(node.data)) {
-        const detailedInfo = formatMultipleRecords(node.id, node.data);
-        const detailContainer = document.createElement('div');
-        detailContainer.innerHTML = `<h3>${node.label} Details</h3>${detailedInfo}`;
-        subResult1.appendChild(detailContainer);
+    if (node.id === 'initial' || node.id.startsWith('initial-')) {
+      const detailedInfo = formatInitialRecord(node.data);
+      const detailContainer = document.createElement('div');
+      detailContainer.innerHTML = `<h3>${node.label} Details</h3>${detailedInfo}`;
+      subResult1.appendChild(detailContainer);
+    } else if (Array.isArray(node.data)) {
+
+      const summary = generateSummary(node.id, node.data);
+      const summaryContainer = document.createElement('div');
+      summaryContainer.innerHTML = `<h3>${node.label} Summary</h3><p>${summary}</p>`;
+      subResult1.appendChild(summaryContainer);
   
-        createCallBarChart(node.data);
+      const searchContainer = document.createElement('div');
+      searchContainer.innerHTML = `
+        <input type="text" id="record-search" placeholder="Search records...">
+        
+        <button id="record-search-clear">Clear</button>
+      `;
+      subResult1.appendChild(searchContainer);
+  
+      const detailContainer = document.createElement('div');
+      detailContainer.id = 'detail-container';
+      subResult1.appendChild(detailContainer);
+
+      
+    function updateResults(searchTerm = '') {
+      const filteredData = searchTerm ? 
+        node.data.filter(record => 
+          Object.values(record).some(value => 
+            String(value).toLowerCase().includes(searchTerm.toLowerCase())
+          )
+        ) : node.data;
+
+      if (filteredData.length === 0) {
+        detailContainer.innerHTML = `<p>No results found for "${searchTerm}"</p>`;
+      } else {
+        const highlightedRecords = formatMultipleRecords(node.id, filteredData, searchTerm);
+        detailContainer.innerHTML = `<h3>${node.label} Details ${searchTerm ? '(Filtered)' : ''}</h3>${highlightedRecords}`;
       }
-    } else if (node.id === 'twitter') {
-      if (Array.isArray(node.data)) {
-        const detailedInfo = formatMultipleRecords(node.id, node.data);
-        const detailContainer = document.createElement('div');
-        detailContainer.innerHTML = `<h3>${node.label} Details</h3>${detailedInfo}`;
-        subResult1.appendChild(detailContainer);
+    }
+
+    updateResults(); // Initial display of all records
+
+    let debounceTimer;
+    document.getElementById('record-search').addEventListener('input', (event) => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => updateResults(event.target.value), 300);
+    });
+
+      // Add event listener for search
+
+      // document.getElementById('record-search-btn').addEventListener('click', () => {
+      //   updateResults(document.getElementById('record-search').value);
+      // });
   
+      document.getElementById('record-search-clear').addEventListener('click', () => {
+        document.getElementById('record-search').value = '';
+        updateResults();
+      });
+  
+      // Create visualizations
+      if (node.id === 'call') {
+        createCallBarChart(node.data);
+      } else if (node.id === 'twitter') {
         createTwitterBarChart(node.data);
       }
     } else {
-      let detailedInfo = '';
-      if (node.id === 'initial' || node.id.startsWith('initial-')) {
-        detailedInfo = formatInitialRecord(node.data);
-      } else if (Array.isArray(node.data)) {
-        detailedInfo = formatMultipleRecords(node.id, node.data);
-      } else {
-        detailedInfo = formatSingleRecord(node.id, node.data);
-      }
+      const detailedInfo = formatSingleRecord(node.id, node.data);
       const detailContainer = document.createElement('div');
       detailContainer.innerHTML = `<h3>${node.label} Details</h3>${detailedInfo}`;
       subResult1.appendChild(detailContainer);
     }
   }
 
-  function formatMultipleRecords(nodeId, records) {
+  function formatMultipleRecords(nodeId, records, highlightTerm = '') {
     let html = '<div class="record-list">';
     records.forEach(record => {
-      html += formatSingleRecord(nodeId, record);
+      html += formatSingleRecord(nodeId, record, highlightTerm);
     });
     html += '</div>';
     return html;
@@ -1116,7 +1220,7 @@ function updateAutocompleteSuggestions(input) {
     return formatRecord(record, sanctioned)
   }
 
-  function formatSingleRecord(nodeId, record) {
+  function formatSingleRecord(nodeId, record, highlightTerm = '') {
     if (nodeId === 'initial' || nodeId.startsWith('initial-')) {
       return formatInitialRecord(record);
     }
@@ -1138,6 +1242,14 @@ function updateAutocompleteSuggestions(input) {
       default:
         return formatRecord(record);
     }
+
+    
+  if (highlightTerm) {
+    const regex = new RegExp(`(${highlightTerm})`, 'gi');
+    html = html.replace(regex, '<mark>$1</mark>');
+  }
+
+  return html;
   }
 
   function getDisplayName(recordType, field) {

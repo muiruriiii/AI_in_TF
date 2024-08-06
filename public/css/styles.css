@@ -154,6 +154,7 @@ h3{
     font-size: 16px;
 }
 
+
 .bold-category {
     font-weight: bold;
     font-size: 1.2em;
@@ -280,3 +281,18 @@ h3{
 .autocomplete-suggestion:hover {
     background-color: #f0f0f0;
 }
+
+#record-search {
+    width: 70%;
+    padding: 10px;
+    margin-right: 10px;
+  }
+  
+  #record-search-clear {
+    padding: 10px 20px;
+    background-color: #D04A02;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+  
