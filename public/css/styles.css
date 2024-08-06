@@ -127,6 +127,7 @@ button {
 .results-container {
     font-family: Arial, sans-serif;
     line-height: 1.6;
+    font-size: 2px;
 }
 
 .record {
@@ -135,6 +136,7 @@ button {
     padding: 10px;
     margin-bottom: 10px;
     border-radius: 5px;
+    font-size: 14px;
 }
 
 .record p {
@@ -147,6 +149,9 @@ button {
     border: 1px solid #ddd;
     padding: 10px;
     margin-bottom: 20px;
+}
+h3{
+    font-size: 16px;
 }
 
 .bold-category {
