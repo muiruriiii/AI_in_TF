@@ -194,11 +194,15 @@ function getSearchMemory() {
     }
     return i === input.length;
   }
-  
+ 
 function updateAutocompleteSuggestions(input) {
   const searchMemory = getSearchMemory();
-  const matchingTerms = searchMemory.filter(term => fuzzyMatch(input, term));
+  const matchingTerms = searchMemory.filter(term => 
+    fuzzyMatch(input, term) ||
+    (term.includes(' ') && (fuzzyMatch(input, term.split(' ')[0]) || fuzzyMatch(input, term.split(' ')[1])))
   
+  );
+ 
   const autocompleteContainer = document.querySelector('#autocomplete-container');
   autocompleteContainer.innerHTML = '';
 
@@ -218,14 +222,14 @@ function updateAutocompleteSuggestions(input) {
   async function performSearch(searchTerm) {
     showLoaders();
     if (searchTerm === '') return;
-  
+ 
     currentSearchTerm = searchTerm;
-  
+ 
     deletedNodes = deletedNodes.filter(term => term !== searchTerm);
-  
+ 
     addSearchToHistory(searchTerm);
     addToSearchMemory(searchTerm);
-  
+ 
     try {
       const data = await fetchSearchResults(searchTerm);
       searches.push(data);
@@ -246,7 +250,7 @@ function updateAutocompleteSuggestions(input) {
       searches.pop();
     }
     localStorage.setItem('searchHistory', JSON.stringify(searches));
-    addToSearchMemory(searchTerm); 
+    addToSearchMemory(searchTerm);
     renderSearchHistory();
   }
 
@@ -275,11 +279,11 @@ function updateAutocompleteSuggestions(input) {
     localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
     renderSearchHistory();
     removeNodeFromSubdiagram2(deletedTerm);
-    
+   
     deletedNodes.push(deletedTerm);
-    
+   
     searches = searches.filter(search => !getInitialLabel(search.searchType, search.initialRecord).includes(deletedTerm));
-  
+ 
     createVisualization(searches);
   }
 
@@ -504,7 +508,7 @@ function updateAutocompleteSuggestions(input) {
  
       if (!deletedNodes.includes(initialLabel) || initialLabel.includes(currentSearchTerm)) {
         const nodeSize = 20;
-  
+ 
         nodes.push({
           id: initialNodeId,
           label: initialLabel,
@@ -522,7 +526,7 @@ function updateAutocompleteSuggestions(input) {
       for (let j = i + 1; j < allSearches.length; j++) {
         const sourceLabel = getInitialLabel(allSearches[i].searchType, allSearches[i].initialRecord);
         const targetLabel = getInitialLabel(allSearches[j].searchType, allSearches[j].initialRecord);
-  
+ 
         if ((!deletedNodes.includes(sourceLabel) && !deletedNodes.includes(targetLabel)) ||
             sourceLabel.includes(currentSearchTerm) || targetLabel.includes(currentSearchTerm)) {
           if (haveCommonData(allSearches[i], allSearches[j])) {
@@ -531,7 +535,7 @@ function updateAutocompleteSuggestions(input) {
               target: `initial-${j}`,
               color: i === 0 || j === 0 ? '#1E90FF' : '#999'
             });
-            
+           
             if (i === 0 || j === 0) {
               const firstNode = nodes.find(n => n.id === 'initial-0');
               if (firstNode) {
@@ -544,8 +548,8 @@ function updateAutocompleteSuggestions(input) {
         }
       }
     }
-  
-  
+ 
+ 
  
     const radius = Math.min(width, height) / 3;
  
@@ -690,7 +694,8 @@ function updateAutocompleteSuggestions(input) {
   function haveCommonData(search1, search2) {
     return search1.initialRecord.phoneNumber === search2.initialRecord.phoneNumber ||
            search1.initialRecord.email === search2.initialRecord.email ||
-           search1.initialRecord.account_number === search2.initialRecord.account_number;
+           search1.initialRecord.account_number === search2.initialRecord.account_number ||
+          (search1.initialRecord.first_name === search2.initialRecord.first_name || search1.initialRecord.last_name === search2.initialRecord.last_name || search1.initialRecord.Name === search2.initialRecord.Name );
   }
 
   function getInitialLabel(searchType, initialRecord) {
@@ -702,8 +707,29 @@ function updateAutocompleteSuggestions(input) {
       case 'account_number':
         return `Account Number: ${initialRecord.account_number}`;
       case 'SenderID':
-        return `Sender ID: ${initialRecord.SenderID}`;
-      default:
+        return `Sender ID: ${initialRecord.SenderID}`; 
+      case 'name':
+          let formattedName = '';
+          if (initialRecord.first_name && initialRecord.last_name) {
+              formattedName += `${initialRecord.first_name} ${initialRecord.last_name}`;
+          }
+          if (initialRecord.name) {
+              formattedName += formattedName ? ` || ${initialRecord.name}` : initialRecord.name;
+          }
+          if (initialRecord.UserName) {
+              formattedName += formattedName ? ` || ${initialRecord.UserName}` : initialRecord.UserName;
+          }
+          if (initialRecord.Username) {
+              formattedName += formattedName ? ` || ${initialRecord.Username}` : initialRecord.Username;
+          }
+          if (initialRecord.CallerName) {
+              formattedName += formattedName ? ` || ${initialRecord.CallerName}` : initialRecord.CallerName;
+          }
+          if (initialRecord.ReceiverName) {
+              formattedName += formattedName ? ` || ${initialRecord.ReceiverName}` : initialRecord.ReceiverName;
+          }
+          return formattedName ? `Name: ${formattedName}` : 'Name: Not available';
+        default:
         return 'Search Term';
     }
   }
@@ -735,7 +761,7 @@ function updateAutocompleteSuggestions(input) {
     let html = '<div class="record">';
     for (let [key, value] of Object.entries(record)) {
       let displayName;
-      if (key === 'email' || key === 'phoneNumber' || key === 'account_number' || key === 'SenderID') {
+      if (key === 'email' || key === 'phoneNumber' || key === 'account_number' || key === 'SenderID' || key === 'name' ) {
         displayName = fieldDisplayNames.bank[key] || key;
       } else {
         // For other fields, try to find a match in any of the fieldDisplayNames objects
@@ -751,19 +777,19 @@ function updateAutocompleteSuggestions(input) {
 
   function createCallDurationHistogram(callRecords) {
     const subResult2 = document.querySelector('#sub-result2');
-    
+   
     // Create SVG
     const margin = {top: 20, right: 20, bottom: 30, left: 40};
     const width = subResult2.clientWidth - margin.left - margin.right;
     const height = 300 - margin.top - margin.bottom;
-  
+ 
     const svg = d3.select('#sub-result2')
       .append('svg')
       .attr('width', width + margin.left + margin.right)
       .attr('height', height + margin.top + margin.bottom)
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
-  
+ 
     // Process data
     const durations = callRecords.map(record => parseInt(record.CallDuration));
     const binCount = 10;
@@ -771,16 +797,16 @@ function updateAutocompleteSuggestions(input) {
       .domain(d3.extent(durations))
       .thresholds(binCount)
       (durations);
-  
+ 
     // Set up scales
     const x = d3.scaleLinear()
       .domain([bins[0].x0, bins[bins.length - 1].x1])
       .range([0, width]);
-  
+ 
     const y = d3.scaleLinear()
       .domain([0, d3.max(bins, d => d.length)])
       .range([height, 0]);
-  
+ 
     // Create bars
     svg.selectAll('rect')
       .data(bins)
@@ -791,23 +817,23 @@ function updateAutocompleteSuggestions(input) {
       .attr('y', d => y(d.length))
       .attr('height', d => height - y(d.length))
       .attr('fill', 'steelblue');
-  
+ 
     // Add x-axis
     svg.append('g')
       .attr('transform', `translate(0,${height})`)
       .call(d3.axisBottom(x));
-  
+ 
     // Add y-axis
     svg.append('g')
       .call(d3.axisLeft(y));
-  
+ 
     // Add labels
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', height + margin.bottom)
       .attr('text-anchor', 'middle')
       .text('Call Duration (seconds)');
-  
+ 
     svg.append('text')
       .attr('transform', 'rotate(-90)')
       .attr('x', -height / 2)
@@ -815,7 +841,7 @@ function updateAutocompleteSuggestions(input) {
       .attr('dy', '1em')
       .attr('text-anchor', 'middle')
       .text('Frequency');
-  
+ 
     // Add title
     svg.append('text')
       .attr('x', width / 2)
@@ -826,36 +852,36 @@ function updateAutocompleteSuggestions(input) {
   }
   function createCallBarChart(callRecords) {
     const subResult2 = document.querySelector('#sub-result2');
-    
+   
     // Create SVG
     const margin = {top: 20, right: 20, bottom: 70, left: 60};
     const width = subResult2.clientWidth - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
-  
+ 
     const svg = d3.select('#sub-result2')
       .append('svg')
       .attr('width', width + margin.left + margin.right)
       .attr('height', height + margin.top + margin.bottom)
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
-  
+ 
     // Process data
     const data = callRecords.map(record => ({
       CallerID: record.CallerName,
       CallDuration: parseInt(record.CallDuration),
       ReceiverID: record.ReceiverName
     }));
-  
+ 
     // Set up scales
     const x = d3.scaleBand()
       .range([0, width])
       .domain(data.map(d => d.CallerID))
       .padding(0.1);
-  
+ 
     const y = d3.scaleLinear()
       .domain([0, d3.max(data, d => d.CallDuration)])
       .range([height, 0]);
-  
+ 
     // Create bars
     svg.selectAll('.bar')
       .data(data)
@@ -867,7 +893,7 @@ function updateAutocompleteSuggestions(input) {
       .attr('y', d => y(d.CallDuration))
       .attr('height', d => height - y(d.CallDuration))
       .attr('fill', '#D04A02');
-  
+ 
     // Add x-axis
     svg.append('g')
       .attr('transform', `translate(0,${height})`)
@@ -875,33 +901,33 @@ function updateAutocompleteSuggestions(input) {
       .selectAll('text')
       .attr('transform', 'rotate(-45)')
       .style('text-anchor', 'end');
-  
+ 
     // Add y-axis
     svg.append('g')
       .call(d3.axisLeft(y));
-  
+ 
     // Add labels
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', height + margin.bottom - 10)
       .attr('text-anchor', 'middle')
       .text('Caller Name');
-  
+ 
     svg.append('text')
       .attr('transform', 'rotate(-90)')
       .attr('x', -height / 2)
       .attr('y', -margin.left + 20)
       .attr('text-anchor', 'middle')
       .text('Call Duration (seconds)');
-  
+ 
     // Add title
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', 0 - (margin.top / 2))
       .attr('text-anchor', 'middle')
       .style('font-size', '16px');
-      
-  
+     
+ 
     // Add hover effect
     const tooltip = d3.select('#sub-result2')
       .append('div')
@@ -913,7 +939,7 @@ function updateAutocompleteSuggestions(input) {
       .style('border-width', '1px')
       .style('border-radius', '5px')
       .style('padding', '10px');
-  
+ 
     svg.selectAll('.bar')
       .on('mouseover', function(event, d) {
         tooltip.transition()
@@ -935,36 +961,36 @@ function updateAutocompleteSuggestions(input) {
 
   function createTwitterBarChart(twitterData) {
     const subResult2 = document.querySelector('#sub-result2');
-    
+   
     // Create SVG
     const margin = {top: 20, right: 20, bottom: 100, left: 100};
     const width = subResult2.clientWidth - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
-  
+ 
     const svg = d3.select('#sub-result2')
       .append('svg')
       .attr('width', width + margin.left + margin.right)
       .attr('height', height + margin.top + margin.bottom)
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
-  
+ 
     // Process data
     const data = twitterData.map(record => ({
       UserName: record.UserName,
       Timestamp: new Date(record.Timestamp),
       Tweet: Array.isArray(record.Tweet) ? record.Tweet.join(', ') : record.Tweet
     })).sort((a, b) => a.Timestamp - b.Timestamp);
-  
+ 
     // Set up scales
     const x = d3.scaleBand()
       .range([0, width])
       .domain(data.map(d => d.UserName))
       .padding(0.1);
-  
+ 
     const y = d3.scaleTime()
       .range([height, 0])
       .domain(d3.extent(data, d => d.Timestamp));
-  
+ 
     // Create bars
     svg.selectAll('.bar')
       .data(data)
@@ -976,7 +1002,7 @@ function updateAutocompleteSuggestions(input) {
       .attr('width', x.bandwidth())
       .attr('height', d => height - y(d.Timestamp))
       .attr('fill', 'steelblue');
-  
+ 
     // Add x-axis
     svg.append('g')
       .attr('transform', `translate(0,${height})`)
@@ -984,25 +1010,25 @@ function updateAutocompleteSuggestions(input) {
       .selectAll('text')
       .attr('transform', 'rotate(-45)')
       .style('text-anchor', 'end');
-  
+ 
     // Add y-axis
     svg.append('g')
       .call(d3.axisLeft(y));
-  
+ 
     // Add labels
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', height + margin.bottom - 20)
       .attr('text-anchor', 'middle')
       .text('Username');
-  
+ 
     svg.append('text')
       .attr('transform', 'rotate(-90)')
       .attr('x', -height / 2)
       .attr('y', -margin.left + 20)
       .attr('text-anchor', 'middle')
       .text('Timestamp');
-  
+ 
     // Add title
     svg.append('text')
       .attr('x', width / 2)
@@ -1010,7 +1036,7 @@ function updateAutocompleteSuggestions(input) {
       .attr('text-anchor', 'middle')
       .style('font-size', '16px')
       .text('Twitter Activity by User');
-  
+ 
     // Add hover effect
     const tooltip = d3.select('#sub-result2')
       .append('div')
@@ -1022,7 +1048,7 @@ function updateAutocompleteSuggestions(input) {
       .style('border-width', '1px')
       .style('border-radius', '5px')
       .style('padding', '10px');
-  
+ 
     svg.selectAll('.bar')
       .on('mouseover', function(event, d) {
         tooltip.transition()
@@ -1109,10 +1135,10 @@ function updateAutocompleteSuggestions(input) {
   function showDetailedInfo(node) {
     const subResult1 = document.querySelector('#sub-result1');
     const subResult2 = document.querySelector('#sub-result2');
-    
+   
     subResult1.innerHTML = '';
     subResult2.innerHTML = '';
-  
+ 
     if (node.id === 'initial' || node.id.startsWith('initial-')) {
       const detailedInfo = formatInitialRecord(node.data);
       const detailContainer = document.createElement('div');
@@ -1124,24 +1150,24 @@ function updateAutocompleteSuggestions(input) {
       const summaryContainer = document.createElement('div');
       summaryContainer.innerHTML = `<h3>${node.label} Summary</h3><p>${summary}</p>`;
       subResult1.appendChild(summaryContainer);
-  
+ 
       const searchContainer = document.createElement('div');
       searchContainer.innerHTML = `
         <input type="text" id="record-search" placeholder="Search records...">
-        
+       
         <button id="record-search-clear">Clear</button>
       `;
       subResult1.appendChild(searchContainer);
-  
+ 
       const detailContainer = document.createElement('div');
       detailContainer.id = 'detail-container';
       subResult1.appendChild(detailContainer);
 
-      
+     
     function updateResults(searchTerm = '') {
-      const filteredData = searchTerm ? 
-        node.data.filter(record => 
-          Object.values(record).some(value => 
+      const filteredData = searchTerm ?
+        node.data.filter(record =>
+          Object.values(record).some(value =>
             String(value).toLowerCase().includes(searchTerm.toLowerCase())
           )
         ) : node.data;
@@ -1167,12 +1193,12 @@ function updateAutocompleteSuggestions(input) {
       // document.getElementById('record-search-btn').addEventListener('click', () => {
       //   updateResults(document.getElementById('record-search').value);
       // });
-  
+ 
       document.getElementById('record-search-clear').addEventListener('click', () => {
         document.getElementById('record-search').value = '';
         updateResults();
       });
-  
+ 
       // Create visualizations
       if (node.id === 'call') {
         createCallBarChart(node.data);
@@ -1197,11 +1223,11 @@ function updateAutocompleteSuggestions(input) {
   }
 
   function formatBankRecord(record) {
-    return formatRecord(record, 'bank');
+    return formatRecord(record, bank);
   }
  
   function formatTwitterRecord(record) {
-    return formatRecord(record, 'twitter');
+    return formatRecord(record, twitter);
   }
  
   function formatCallRecord(record) {
@@ -1218,6 +1244,9 @@ function updateAutocompleteSuggestions(input) {
 
   function formatSanctionedRecord(record) {
     return formatRecord(record, sanctioned)
+  }
+  function formatImportExportRecord(record) {
+    return formatRecord(record, importExport)
   }
 
   function formatSingleRecord(nodeId, record, highlightTerm = '') {
@@ -1243,7 +1272,7 @@ function updateAutocompleteSuggestions(input) {
         return formatRecord(record);
     }
 
-    
+   
   if (highlightTerm) {
     const regex = new RegExp(`(${highlightTerm})`, 'gi');
     html = html.replace(regex, '<mark>$1</mark>');
@@ -1253,7 +1282,7 @@ function updateAutocompleteSuggestions(input) {
   }
 
   function getDisplayName(recordType, field) {
-    if (recordType === 'email' || recordType === 'phone' || recordType === 'account_number' || recordType === 'SenderID') {
+    if (recordType === 'email' || recordType === 'phone' || recordType === 'account_number' || recordType === 'SenderID' || 'name' ) {
       return fieldDisplayNames['bank'][field] || field;
     }
     return fieldDisplayNames[recordType] && fieldDisplayNames[recordType][field]
@@ -1375,4 +1404,3 @@ function updateAutocompleteSuggestions(input) {
     return html;
   }
 });
-

@@ -3,7 +3,6 @@ const path = require('path');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const fs = require('fs');
-const axios =require("axios")
 
 const app = express();
 const PORT = 5500;
@@ -195,14 +194,25 @@ app.post('/search', async (req, res) => {
                         await Facebook.findOne({ phoneNumber: searchTerm }) ||
                         await importExport.findOne({ Contact_phone_number: searchTerm });
         break;
-      case 'name':
-        initialRecord = await Bank.findOne({ 
-          $or: [
-            { first_name: { $regex: new RegExp(searchTerm, 'i') } },
-            { last_name: { $regex: new RegExp(searchTerm, 'i') } }
-          ]
-        }) || await Sanctioned.findOne({ name: { $regex: new RegExp(searchTerm, 'i') } });
-        break;
+        case 'name':
+          // New name search logic
+          initialRecord = await Bank.findOne({
+            $or: [
+              { first_name: { $regex: searchTerm, $options: 'i' } },
+              { last_name: { $regex: searchTerm, $options: 'i' } },
+              { Name: { $regex: searchTerm, $options: 'i' } }
+            ] }) ||
+                          await Twitter.findOne({ UserName: { $regex: searchTerm, $options: 'i' } }) ||
+                          await Call.findOne({ 
+                            $or: [
+                              { CallerName: { $regex: searchTerm, $options: 'i' } },
+                              { ReceiverName: { $regex: searchTerm, $options: 'i' } }
+                            ]
+                          }) ||
+                          await Sanctioned.findOne({ name: { $regex: searchTerm, $options: 'i' } }) ||
+                          await Facebook.findOne({ Username: { $regex: searchTerm, $options: 'i' } });
+          
+          break;
       default:
         res.status(400).json({ error: 'Invalid search term' });
         return;
@@ -216,8 +226,10 @@ app.post('/search', async (req, res) => {
           { email: initialRecord.email },
           { account_number: initialRecord.account_number },
           { SenderID: initialRecord.SenderID },
-          { first_name: initialRecord.first_name },
-          { last_name: initialRecord.last_name }
+          { first_name: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } },
+          { last_name: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } },
+          { Name: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } }
+
         ]
       };
 
@@ -228,7 +240,9 @@ app.post('/search', async (req, res) => {
       matchedCallRecords = await Call.find({
         $or: [
           { CallerID: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID || initialRecord.Contact_phone_number},
-          { ReceiverID: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID || initialRecord.Contact_phone_number}
+          { ReceiverID: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID || initialRecord.Contact_phone_number},
+          { CallerName: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } },
+          { ReceiverName: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } }
         ]
       });
 
@@ -236,14 +250,17 @@ app.post('/search', async (req, res) => {
       matchedTwitterData = await Twitter.find({
         $or: [
           { phoneNumber: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID || initialRecord.Contact_phone_number },
-          { email: initialRecord.email }
+          { email: initialRecord.email },
+          { UserName: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } }
         ]
       });
 
       // Search in Sanctioned data
       matchedSanctionedData = await Sanctioned.find({
         $or: [
-          { email: initialRecord.email }
+          { email: initialRecord.email },
+          { name: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } },
+          { aliases: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } }
         ]
       });
 
@@ -251,7 +268,8 @@ app.post('/search', async (req, res) => {
       matchedFacebookData = await Facebook.find({
         $or: [
           { phoneNumber: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID || initialRecord.Contact_phone_number },
-          { Email: initialRecord.email }
+          { Email: initialRecord.email },
+          { Username: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } }
         ]
       });
 
@@ -259,14 +277,15 @@ app.post('/search', async (req, res) => {
       matchedImmigrationData = await Immigration.find({
         $or: [
           { phoneNumber: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID || initialRecord.Contact_phone_number },
-          { ID_Number: initialRecord.SenderID }
+          { ID_Number: initialRecord.SenderID },
+          { Name: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } }
         ]
       });
 
       // Search in Import and Export data
       matchedImportExportData = await importExport.find({
         $or: [
-          { Contact_phone_number: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID }
+          { Contact_phone_number: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID },
         ]
       });
     }
@@ -311,6 +330,16 @@ async function determineSearchType(searchTerm) {
       await Facebook.exists({ Email: searchTerm })) {
     return 'email';
   }
+  if (
+      await Bank.exists({ $or: [{ first_name: { $regex: new RegExp(searchTerm, 'i')} }, { last_name: { $regex: new RegExp(searchTerm, 'i')} }, {Name: { $regex: new RegExp(searchTerm, 'i')} }] }) ||
+      await Twitter.exists({ UserName: { $regex: new RegExp(searchTerm, 'i')} }) ||
+      await Sanctioned.exists({ name: { $regex: new RegExp(searchTerm, 'i')} }) ||
+      await Facebook.exists({ Username: { $regex: new RegExp(searchTerm, 'i')} }) ||
+      await Call.exists({ $or: [{ CallerName: { $regex: new RegExp(searchTerm, 'i')} }, { ReceiverName: { $regex: new RegExp(searchTerm, 'i')} }] }) ||
+      await Twitter.exists ({ Name: { $regex: new RegExp(searchTerm, 'i')} })
+  ) {
+    return 'name';
+  }
   if (await Bank.exists({ account_number: parseInt(searchTerm, 10) })) {
     return 'account_number';
   }
@@ -325,16 +354,7 @@ async function determineSearchType(searchTerm) {
       await Immigration.exists({ phoneNumber: searchTerm })) {
     return 'phone';
   }
- 
-  if (await Bank.exists({ 
-    $or: [
-      { Name: { $regex: new RegExp(searchTerm, 'i') } },
-      { first_name: { $regex: new RegExp(searchTerm, 'i') } },
-      { last_name: { $regex: new RegExp(searchTerm, 'i') } }
-    ]
-  }) || await Sanctioned.exists({ name: { $regex: new RegExp(searchTerm, 'i') } })) {
-    return 'name';
-  }
+
   return 'other';
 }
 
