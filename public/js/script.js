@@ -197,10 +197,10 @@ function getSearchMemory() {
  
 function updateAutocompleteSuggestions(input) {
   const searchMemory = getSearchMemory();
-  const matchingTerms = searchMemory.filter(term => 
+  const matchingTerms = searchMemory.filter(term =>
     fuzzyMatch(input, term) ||
     (term.includes(' ') && (fuzzyMatch(input, term.split(' ')[0]) || fuzzyMatch(input, term.split(' ')[1])))
-  
+ 
   );
  
   const autocompleteContainer = document.querySelector('#autocomplete-container');
@@ -707,7 +707,7 @@ function updateAutocompleteSuggestions(input) {
       case 'account_number':
         return `Account Number: ${initialRecord.account_number}`;
       case 'SenderID':
-        return `Sender ID: ${initialRecord.SenderID}`; 
+        return `Sender ID: ${initialRecord.SenderID}`;
       case 'name':
           let formattedName = '';
           if (initialRecord.first_name && initialRecord.last_name) {
@@ -716,6 +716,9 @@ function updateAutocompleteSuggestions(input) {
           if (initialRecord.name) {
               formattedName += formattedName ? ` || ${initialRecord.name}` : initialRecord.name;
           }
+          // if (initialRecord.Name) {
+          //     formattedName += formattedName ? ` || ${initialRecord.Name}` : initialRecord.Name;
+          // }
           if (initialRecord.UserName) {
               formattedName += formattedName ? ` || ${initialRecord.UserName}` : initialRecord.UserName;
           }
@@ -1223,11 +1226,11 @@ function updateAutocompleteSuggestions(input) {
   }
 
   function formatBankRecord(record) {
-    return formatRecord(record, bank);
+    return formatRecord(record, 'bank');
   }
  
   function formatTwitterRecord(record) {
-    return formatRecord(record, twitter);
+    return formatRecord(record, 'twitter');
   }
  
   function formatCallRecord(record) {
@@ -1244,9 +1247,6 @@ function updateAutocompleteSuggestions(input) {
 
   function formatSanctionedRecord(record) {
     return formatRecord(record, sanctioned)
-  }
-  function formatImportExportRecord(record) {
-    return formatRecord(record, importExport)
   }
 
   function formatSingleRecord(nodeId, record, highlightTerm = '') {

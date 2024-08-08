@@ -39,8 +39,28 @@ const twitterSchema = new mongoose.Schema({
   phoneNumber: Number,
   Tweet: [String],
   Timestamp: String,
-  email: String
+  email: String,
+  IP_Address: String
 }, { collection: 'Twitter_data' });
+
+const cryptocurrencySchema = new mongoose.Schema({
+  
+Transaction_ID: String,
+Timestamp: Number,
+Sender_Address: String,
+Recipient_Address: String,
+Amount: Number,
+Transaction_Fee: Number,
+Block_Number: Number,
+Inputs: String,
+Outputs: String,
+Signature: String,
+ScriptPubKey: String,
+ScriptSig: String,
+Confirmations: Number,
+IP_Address: String
+}, { collection: 'Cryptocurrency_data' });
+
 
 const immigrationSchema = new mongoose.Schema({
   Name: String,
@@ -121,15 +141,14 @@ const Immigration = mongoose.model('Immigration', immigrationSchema);
 const Bank = mongoose.model('Bank', bankSchema);
 const Call = mongoose.model('Call', callSchema);
 const Facebook = mongoose.model('Facebook', facebookSchema);
-const importExport = mongoose.model('importExport', importExportSchema);
-
-
+const ImportExport = mongoose.model('ImportExport', importExportSchema);
+const Cryptocurrency = mongoose.model('Cryptocurrency', cryptocurrencySchema);
 
 // Test connection function
 const testConnection = async () => {
   try {
 
-    const collections = ['Bank_information', 'Twitter_data', 'Sanctioned_list', 'Call_records', 'Facebook_data', 'Immigration', 'Import_Export_data'];
+    const collections = ['Bank_information', 'Twitter_data', 'Sanctioned_list', 'Call_records', 'Facebook_data', 'Immigration', 'Import_Export_data', 'Cryptocurrency_data'];
     for (const collection of collections) {
       const count = await mongoose.connection.db.collection(collection).countDocuments();
       console.log(`Number of documents in ${collection}: ${count}`);
@@ -170,6 +189,7 @@ app.post('/search', async (req, res) => {
     let matchedFacebookData = [];
     let matchedImmigrationData = [];
     let matchedImportExportData = [];
+    let matchedCryptocurrencyData = [];
 
 
     // Initial search 
@@ -183,6 +203,11 @@ app.post('/search', async (req, res) => {
       case 'account_number':
         initialRecord = await Bank.findOne({ account_number: parseInt(searchTerm, 10) });
         break;
+
+        case 'IP_Address':
+          initialRecord = await Twitter.findOne({ IP_Address: parseInt(searchTerm, 10) });
+                          await Cryptocurrency.findOne({ IP_Address: parseInt(searchTerm, 10) });
+          break;
       case 'SenderID':
         initialRecord = await Bank.findOne({ SenderID: parseInt(searchTerm, 10) }) ||
                         await Immigration.findOne({ ID_Number: parseInt(searchTerm, 10) })   
@@ -192,7 +217,7 @@ app.post('/search', async (req, res) => {
                         await Twitter.findOne({ phoneNumber: searchTerm }) ||
                         await Call.findOne({ $or: [{ CallerID: searchTerm }, { ReceiverID: searchTerm }] }) ||
                         await Facebook.findOne({ phoneNumber: searchTerm }) ||
-                        await importExport.findOne({ Contact_phone_number: searchTerm });
+                        await ImportExport.findOne({ Contact_phone_number: searchTerm });
         break;
         case 'name':
           // New name search logic
@@ -222,9 +247,7 @@ app.post('/search', async (req, res) => {
       // Use the found record's details for further searching
       const searchCriteria = {
         $or: [
-          { phoneNumber: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID || initialRecord.Contact_phone_number },
-          { email: initialRecord.email },
-          { account_number: initialRecord.account_number },
+          { phoneNumber: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID || initialRecord.Contact_phone_number },          { account_number: initialRecord.account_number },
           { SenderID: initialRecord.SenderID },
           { first_name: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } },
           { last_name: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } },
@@ -251,7 +274,8 @@ app.post('/search', async (req, res) => {
         $or: [
           { phoneNumber: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID || initialRecord.Contact_phone_number },
           { email: initialRecord.email },
-          { UserName: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } }
+          { UserName: { $regex: initialRecord.first_name || initialRecord.last_name || initialRecord.UserName || initialRecord.CallerName || initialRecord.ReceiverName || initialRecord.name || initialRecord.Username || initialRecord.Name, $options: 'i' } },
+          { IP_Address: initialRecord.IP_Address}
         ]
       });
 
@@ -283,11 +307,19 @@ app.post('/search', async (req, res) => {
       });
 
       // Search in Import and Export data
-      matchedImportExportData = await importExport.find({
-        $or: [
-          { Contact_phone_number: initialRecord.phoneNumber || initialRecord.CallerID || initialRecord.ReceiverID },
-        ]
+      matchedImportExportData = await ImportExport.find({
+        Contact_phone_number: {
+          $in: [
+            initialRecord.phoneNumber,
+            ...matchedBankRecords.map(record => record.phoneNumber),
+            ...matchedTwitterData.map(record => record.phoneNumber),
+            ...matchedFacebookData.map(record => record.phoneNumber),
+            ...matchedCallRecords.map(record => record.CallerID),
+            ...matchedCallRecords.map(record => record.ReceiverID)
+          ].filter(Boolean) // Remove any undefined or null values
+        }
       });
+      matchedCryptocurrencyData = await Cryptocurrency.findOne({ IP_Address: initialRecord.IP_Address })
     }
 
     console.log('Initial record found:', initialRecord);
@@ -310,6 +342,7 @@ app.post('/search', async (req, res) => {
       matchedFacebookData,
       matchedImmigrationData,
       matchedImportExportData,
+      matchedCryptocurrencyData,
       searchType
     };
 
@@ -346,11 +379,16 @@ async function determineSearchType(searchTerm) {
   if (await Bank.exists({ SenderID: parseInt(searchTerm, 10) })) {
     return 'SenderID';
   }
+  if (await Twitter.exists({ IP_Address: parseInt(searchTerm, 10) }) ||
+      await Cryptocurrency.exists({ IP_Address: parseInt(searchTerm, 10) })
+  ) {
+    return 'IP_Address';
+  }
   if (await Bank.exists({ phoneNumber: searchTerm }) ||
       await Twitter.exists({ phoneNumber: searchTerm }) ||
       await Call.exists({ $or: [{ CallerID: searchTerm }, { ReceiverID: searchTerm }] }) ||
       await Facebook.exists({ phoneNumber: searchTerm }) ||
-      await importExport.exists({ Contact_phone_number: searchTerm }) ||
+      await ImportExport.exists({ Contact_phone_number: searchTerm }) ||
       await Immigration.exists({ phoneNumber: searchTerm })) {
     return 'phone';
   }
